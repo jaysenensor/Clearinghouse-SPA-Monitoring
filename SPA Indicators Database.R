@@ -6,9 +6,6 @@ library(countrycode)
 
 setwd('E:\\ODW 2025\\SPA\\SPA Indicators')
 
-
-
-iso3 <- 
 ### Indicator: Total spending on data and statistics (External financing):
 ### source used: PRESS data for 2023, by recipient:
 
@@ -56,6 +53,23 @@ sectorODAscb <- press %>%
     TRUE ~ iso3) 
   ) %>%
   relocate(iso3, .before = country)
+
+
+# manipulate data so it has separate columns for sector and sector amount:
+sectorODAscbwide <- sectorODAscb %>%
+  group_by(iso3, country) %>%
+  arrange(desc(sectorODAscb2023), .by_group = T) %>%
+  mutate(rank = row_number()) %>%
+  filter(rank <= 3) %>%
+  pivot_wider(
+    names_from  = rank,
+    values_from = c(sector_name, sectorODAscb2023),
+    names_glue  = "{c('first','second','third')[rank]}_{.value}"
+  ) %>%
+  relocate(first_sectorODAscb2023, .after = first_sector_name) %>%
+  relocate(second_sectorODAscb2023, .after = second_sector_name) %>%
+  relocate(third_sectorODAscb2023, .after = third_sector_name)
+
 
 ### Indicator: Statistical Plans are fully funded
 ### Source: SDG 17.18.3  (1 = YES; 0 = NO)
@@ -133,16 +147,17 @@ odin_coverage <- odin_scores %>%
   select(-openness_subscore, -overall_score) %>%
   group_by(country_code) %>%
   arrange(country_code, desc(year)) %>%
-  slice_head(n = 1) # keep the most recent year
-
+  slice_head(n = 1) %>% # keep the most recent year
+  rename(iso3 = country_code)
 
 # Openness score:
 odin_openness <- odin_scores %>%
   select(-coverage_subscore, -overall_score) %>%
   group_by(country_code) %>%
   arrange(country_code, desc(year)) %>%
-  slice_head(n = 1) # keep most recent year
-            
+  slice_head(n = 1) %>% # keep most recent year
+  rename(iso3 = country_code)
+
 
 
 ### Indicator: Gender Data Compass, Gender Data Outlook
@@ -153,7 +168,7 @@ gdcscore <- read_xlsx('GDC_data.xlsx') %>%
   janitor::clean_names() %>%
   filter(data_category == 'All Categories') %>%
   select(year, country_code, country, availability_and_openness_score) %>%
-  rename(gdc_score2023 = availability_and_openness_score)
+  rename(gdc_score2023 = availability_and_openness_score, iso3 = country_code)
 
 # ## GDO:
 # gdoscore <- read_xlsx('Gender-Data-Outlook-Country-Table-Annex.xlsx', sheet = 'Country scores') %>%
@@ -172,7 +187,7 @@ spi <- read_xlsx('SPI_databank_latest.xlsx') %>%
 
 sdds <- spi %>%
   filter(source_id == 'SPI.D2.1.GDDS') %>%
-  rename(sdds2024 = value) %>%
+  rename(sdds2024 = value, iso3 = iso3c) %>%
   select(-source_id)
 
 ### Indicator: Adherence to Statistical Standards
@@ -181,7 +196,7 @@ sdds <- spi %>%
 statstandards <- read_csv('SPI_index.csv') %>%
   filter(date == '2024') %>%
   select(country, iso3c, SPI.DIM5.2.INDEX) %>%
-  rename(statstandards2024 = SPI.DIM5.2.INDEX)
+  rename(statstandards2024 = SPI.DIM5.2.INDEX, iso3 = iso3c)
 
 
 ### Indicator: AI-readiness
@@ -230,3 +245,59 @@ statplanimplemented <- read_xlsx('statistical plan implemented.xlsx') %>%
   mutate(iso3 = countrycode(country, origin = 'country.name', destination = 'iso3c')) %>%
   filter(!(is.na(iso3))) # all those w/o iso3 were regional/political groupings
 
+
+##### Putting into one dataset #####
+### do the sector ODA last since it needs multiple columns in the dataset:
+
+dataset <- totalODAscb %>%
+  select(-country) %>%
+  full_join(statplansfunded, by = 'iso3') %>% 
+  select(-year, -country) %>%
+  full_join(stakeholdercoord, by = 'iso3') %>%
+  select(-year, -country) %>%
+  full_join(statcouncil, by = 'iso3') %>%
+  select(-year, -country) %>%
+  full_join(odin_coverage, by = 'iso3') %>%
+  select(-year, -country) %>%
+  full_join(odin_openness, by = 'iso3') %>%
+  select(-year, -country) %>%
+  full_join(gdcscore, by = 'iso3') %>%
+  select(-year, -country) %>%
+  full_join(statstandards, by = 'iso3') %>%
+  select(-country) %>%
+  full_join(sdds, by = 'iso3') %>%
+  select(-country) %>%
+  full_join(aireadiness, by = 'iso3') %>%
+  select(-country) %>%
+  full_join(fposcompliant, by = 'iso3') %>%
+  select(-year, -country) %>%
+  full_join(civilsociety, by = 'iso3') %>%
+  select(-country) %>%
+  full_join(statplanimplemented, by = 'iso3') %>%
+  select(-country) %>%
+  full_join(sectorODAscbwide, by = 'iso3') %>%
+  select(-country) %>%
+# Add in country names:
+  mutate(country = countrycode(iso3, origin = 'iso3c', destination = 'country.name')) %>%
+  relocate(country, .before = iso3) %>%
+# add in Kosovo and China:
+  mutate(country = case_when(
+    iso3 == 'XKX' ~ 'Kosovo',
+    iso3 == 'CHI' ~ 'Channel Islands',
+    TRUE ~ country
+  )) %>%
+ #### Assign income groups ####
+  left_join(read_xlsx('wb_incomegroups_26.xlsx') %>%
+              janitor::clean_names() %>%
+              filter(!is.na(region)) %>%
+              mutate(income_group = fct_relevel(income_group, 'Low income', 'Lower middle income', 'Upper middle income', 'High income')) %>%
+              select(code, income_group), by = c('iso3' = 'code')) %>%
+  mutate(income_group = case_when( # reassign from NA for Venezuela and Ethiopia, others are territories and Vatican so can be removed
+    iso3 == 'VEN' ~ 'Upper middle income',
+    iso3 == 'ETH' ~ 'Low income',
+    TRUE ~ income_group)) %>%
+  filter(!is.na(income_group)) %>%
+#### remove high income:
+  filter(income_group != 'High income')
+
+write_xlsx(dataset, 'spa_indicators_pilot.xlsx')
