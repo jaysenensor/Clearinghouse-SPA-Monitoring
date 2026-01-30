@@ -74,7 +74,9 @@ sectorODAscbwide <- sectorODAscb %>%
 ### Indicator: Statistical Plans are fully funded
 ### Source: SDG 17.18.3  (1 = YES; 0 = NO)
 statplansfunded <- read_xlsx('sdg database 17.18.3 all countries.xlsx', sheet = 'Goal17') %>%
-  select(GeoAreaName, TimePeriod, Value) %>%
+  select(GeoAreaName, TimePeriod, Value, SeriesCode) %>%
+  filter(SeriesCode == 'SG_STT_NSDSFND') %>%
+  select(-SeriesCode) %>%
   rename(country = GeoAreaName, year = TimePeriod, statplanfunded = Value) %>%
   filter(statplanfunded != 'NaN') %>%
   group_by(country) %>%
