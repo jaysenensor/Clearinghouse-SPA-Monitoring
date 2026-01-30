@@ -44,8 +44,8 @@ sectorODAscb <- press %>%
   summarize(sectorODAscb2023 = sum(usd_disbursement_defl, na.rm = T)) %>%
   ungroup() %>%
   group_by(country) %>%
-  arrange(country, desc(sectorODAscb2023)) %>%
-  slice_head(n = 3) %>%
+  arrange(country, desc(sectorODAscb2023)) %>% # need each country to have their sectors in order from greatest to smallest
+  slice_head(n = 3) %>% # only want the sectors with the three highest amounts
   mutate(iso3 = countrycode(country, origin = 'country.name', destination = 'iso3c')) %>%
   mutate(iso3 = case_when( # add Kosovo and Micronesia
     str_detect(country, 'Kosovo') ~ 'XKX',
@@ -56,7 +56,7 @@ sectorODAscb <- press %>%
 
 
 # manipulate data so it has separate columns for sector and sector amount:
-sectorODAscbwide <- sectorODAscb %>%
+sectorODAscb <- sectorODAscb %>%
   group_by(iso3, country) %>%
   arrange(desc(sectorODAscb2023), .by_group = T) %>%
   mutate(rank = row_number()) %>%
@@ -277,7 +277,7 @@ dataset <- totalODAscb %>%
   select(-country) %>%
   full_join(statplanimplemented, by = 'iso3') %>%
   select(-country) %>%
-  full_join(sectorODAscbwide, by = 'iso3') %>%
+  full_join(sectorODAscb, by = 'iso3') %>%
   select(-country) %>%
 # Add in country names:
   mutate(country = countrycode(iso3, origin = 'iso3c', destination = 'country.name')) %>%
