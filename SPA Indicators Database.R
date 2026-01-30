@@ -75,12 +75,13 @@ sectorODAscb <- sectorODAscb %>%
 ### Source: SDG 17.18.3  (1 = YES; 0 = NO)
 statplansfunded <- read_xlsx('sdg database 17.18.3 all countries.xlsx', sheet = 'Goal17') %>%
   select(GeoAreaName, TimePeriod, Value, SeriesCode) %>%
-  filter(SeriesCode == 'SG_STT_NSDSFND') %>%
+  filter(SeriesCode == 'SG_STT_NSDSFND') %>% # want the variable "Countries with national statistical plans that are fully funded (1 = YES; 0 = NO)"
   select(-SeriesCode) %>%
   rename(country = GeoAreaName, year = TimePeriod, statplanfunded = Value) %>%
   filter(statplanfunded != 'NaN') %>%
+  mutate(statplanfunded = as.numeric(statplanfunded)) %>%
   group_by(country) %>%
-  slice_max(year, n = 1, with_ties = F) %>% # only want most recent year
+  slice_max(year, n = 1, with_ties = F) %>% # only want most recent year for each country
   ungroup() %>%
   mutate(iso3 = countrycode(country, origin = 'country.name', destination = 'iso3c')) %>%
   relocate(iso3, .before = country)
@@ -95,7 +96,7 @@ stakeholdercoord <- read_xlsx('stakeholder coordination meetings in 2021.xlsx') 
   mutate(stakeholdcoord2021 = as.numeric(stakeholdcoord2021)) %>%
   select(-indicator) %>%
   mutate(iso3 = countrycode(country, origin = 'country.name', destination = 'iso3c')) %>%
-  filter(!(is.na(iso3))) %>% # all of those w/o iso3 were regional/political groupings
+  filter(!(is.na(iso3))) %>% # all of those w/o iso3 were regional/political groupings - remove them
   relocate(iso3, .before = country)
 
 ### Indicator: Statistical Council present
@@ -108,7 +109,7 @@ statcouncil <- read_xlsx('statistical council present.xlsx') %>%
   mutate(statcouncil2023 = as.numeric(statcouncil2023)) %>%
   select(-indicator) %>%
   mutate(iso3 = countrycode(country, origin = 'country.name', destination = 'iso3c')) %>%
-  filter(!(is.na(iso3))) %>% # all of those w/o iso3 were regional/political groupings
+  filter(!(is.na(iso3))) %>% # all of those w/o iso3 were regional/political groupings - remove them
   relocate(iso3, .before = country)
 
 ### Indicator: ODIN Coverage and Openness
@@ -188,7 +189,7 @@ spi <- read_xlsx('SPI_databank_latest.xlsx') %>%
   select(country, iso3c, value, source_id)
 
 sdds <- spi %>%
-  filter(source_id == 'SPI.D2.1.GDDS') %>%
+  filter(source_id == 'SPI.D2.1.GDDS') %>% # GDDS Standards variable
   rename(sdds2024 = value, iso3 = iso3c) %>%
   select(-source_id)
 
@@ -197,7 +198,7 @@ sdds <- spi %>%
 
 statstandards <- read_csv('SPI_index.csv') %>%
   filter(date == '2024') %>%
-  select(country, iso3c, SPI.DIM5.2.INDEX) %>%
+  select(country, iso3c, SPI.DIM5.2.INDEX) %>% # SPI.DIM5.2.INDEX is the index score for 5.2 on Statistical Standards
   rename(statstandards2024 = SPI.DIM5.2.INDEX, iso3 = iso3c)
 
 
@@ -233,7 +234,7 @@ civilsociety <- read_xlsx('civil society in statistics.xlsx') %>%
   mutate(csosactive2023 = as.numeric(csosactive2023)) %>%
   select(country, csosactive2023) %>%
   mutate(iso3 = countrycode(country, origin = 'country.name', destination = 'iso3c')) %>%
-  filter(!(is.na(iso3))) # all those w/o iso3 were regional/political groupings
+  filter(!(is.na(iso3))) # all those w/o iso3 were regional/political groupings - remove them
 
 ### Indicator: Statistical Law in place, NSDS in place
 ### Source: SCM Indicator 163
@@ -245,7 +246,7 @@ statplanimplemented <- read_xlsx('statistical plan implemented.xlsx') %>%
   mutate(statplanimplemented2023 = as.numeric(statplanimplemented2023)) %>%
   select(country, statplanimplemented2023) %>%
   mutate(iso3 = countrycode(country, origin = 'country.name', destination = 'iso3c')) %>%
-  filter(!(is.na(iso3))) # all those w/o iso3 were regional/political groupings
+  filter(!(is.na(iso3))) # all those w/o iso3 were regional/political groupings - remove them
 
 
 ##### Putting into one dataset #####
