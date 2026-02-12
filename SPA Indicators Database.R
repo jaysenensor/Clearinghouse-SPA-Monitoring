@@ -173,15 +173,15 @@ gdcscore <- read_xlsx('GDC_data.xlsx') %>%
   select(year, country_code, country, availability_and_openness_score) %>%
   rename(gdc_score2023 = availability_and_openness_score, iso3 = country_code)
 
-# ## GDO:
-# gdoscore <- read_xlsx('Gender-Data-Outlook-Country-Table-Annex.xlsx', sheet = 'Country scores') %>%
-#   rename(country = Country,
-#          gdo_score2024 = `...4`) %>%
-#   select(country, gdo_score2024) %>%
-#   filter(!is.na(country)) %>%
-#   filter(!is.na(gdo_score2024)) %>%
-#   mutate(iso3 = countrycode(country, origin = 'country.name', destination = 'iso3c'))
-  
+## GDO:
+gdoscore <- read_xlsx('Gender-Data-Outlook-Country-Table-Annex.xlsx', sheet = 'Country scores') %>%
+  rename(country = Country,
+         gdo_score2024 = `...4`) %>%
+  select(country, gdo_score2024) %>%
+  filter(!is.na(country)) %>%
+  filter(!is.na(gdo_score2024)) %>%
+  mutate(iso3 = countrycode(country, origin = 'country.name', destination = 'iso3c'))
+
 ### Indicator: SDDS Subscription Status
 ### Source: Statistical Capacity Monitoring Indicator 112 (1 = Subscribing to IMF SDDS+ or SDDS standards; 0.5 = Subscribing to IMF e-GDDS standards; 0 = Otherwise)
 
@@ -266,6 +266,8 @@ dataset <- totalODAscb %>%
   select(-year, -country) %>%
   full_join(gdcscore, by = 'iso3') %>%
   select(-year, -country) %>%
+  full_join(gdoscore, by = 'iso3') %>%
+  select(-country) %>%
   full_join(statstandards, by = 'iso3') %>%
   select(-country) %>%
   full_join(sdds, by = 'iso3') %>%
