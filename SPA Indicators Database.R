@@ -30,7 +30,6 @@ totalODAscb <- press %>%
   ) %>%
   relocate(iso3, .before = country)
 
-
 ### Indicator: Sector breakdown of data and statistics spending
 ### Source used: PRESS data for 2023, by recipient, by top 3 sectors:
 
@@ -249,11 +248,40 @@ statplanimplemented <- read_xlsx('statistical plan implemented.xlsx') %>%
   filter(!(is.na(iso3))) # all those w/o iso3 were regional/political groupings - remove them
 
 
+### Need CRS 2023 data to compare to the PRESS data - to see what % of ODA is for statistics
+### Source: https://data-explorer.oecd.org/vis?fs[0]=Topic%2C1%7CDevelopment%23DEV%23%7COfficial%20Development%20Assistance%20%28ODA%29%23DEV_ODA%23&pg=0&fc=Topic&bp=true&snb=20&vw=ov&df[ds]=dsDisseminateFinalDMZ&df[id]=DSD_CRS%40DF_CRS&df[ag]=OECD.DCD.FSD&df[vs]=1.5&dq=DAC..1000.100._T._T.D.Q._T..&lom=LASTNPERIODS&lo=5&to[TIME_PERIOD]=false
+
+crs <- read_delim('CRS 2023 data.txt') %>%
+  select(RecipientName, USD_Disbursement_Defl) %>%
+  rename(country = RecipientName) %>%
+  mutate(USD_Disbursement_Defl = USD_Disbursement_Defl * 1000000) %>% # convert from millions to whole number 
+  filter(!grepl('regional|unspecified', country, ignore.case = T)) %>%
+  group_by(country) %>%
+  summarize(totalODA2023 = sum(USD_Disbursement_Defl, na.rm = T)) %>%
+  mutate(iso3 = countrycode(country, origin = 'country.name', destination = 'iso3c')) %>% 
+  mutate(iso3 = case_when( # add Kosovo and Micronesia
+    str_detect(country, 'Kosovo') ~ 'XKX',
+    str_detect(country, 'Micronesia') ~ 'FSM',
+    TRUE ~ iso3) 
+  ) %>%
+  relocate(iso3, .before = country)
+
+### Add the ODA for SCB data and  calculate the percentage 
+percentofoda <- crs %>%
+  full_join(totalODAscb) %>%
+  filter(!is.na(totalODAscb2023)) %>%
+  group_by(iso3) %>%
+  mutate(scbpercentoftotaloda = (totalODAscb2023/totalODA2023) * 100) %>% # Calculate percentage 
+  rename(totalODAscb20231 = totalODAscb2023) # rename so can append to the final dataset without duplicates
+
+
 ##### Putting into one dataset #####
 ### do the sector ODA last since it needs multiple columns in the dataset:
 
 dataset <- totalODAscb %>%
   select(-country) %>%
+  full_join(percentofoda, by ='iso3') %>%
+  select(-country, -totalODA2023, -totalODAscb20231) %>%
   full_join(statplansfunded, by = 'iso3') %>% 
   select(-year, -country) %>%
   full_join(stakeholdercoord, by = 'iso3') %>%
